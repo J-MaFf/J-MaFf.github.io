@@ -346,6 +346,64 @@ Rules:
 
 ---
 
+## Beads (`bd`) — Layered Task & Memory Workflow
+
+**Applies only when a repo contains a `.beads/` directory.** Beads ([gastownhall/beads](https://github.com/gastownhall/beads)) is a Dolt-backed dependency-graph task tracker that sits **underneath** GitHub Issues as the agent's execution + memory layer. It does not replace this workflow — it layers under it.
+
+### The layered model
+
+- **GitHub Issue = the shippable unit.** Branch → PR → `Fixes #N` → squash-merge, exactly as above.
+- **Beads = the execution/memory layer underneath.** Fine-grained tasks, a dependency graph, the `bd ready` queue, and `bd remember` persistent memory — the working notes beneath a shippable issue.
+
+Beads guards **durability/sync**; these policies guard **review/control**. They only appear to conflict if you read bd's "push" as "merge." Keep them separate: bd makes work durable; **merges to `main` stay human-gated via PR** (never auto-merge).
+
+### Core loop
+
+```bash
+bd ready                      # tasks with no open blockers
+bd update <id> --claim        # claim one (sets assignee + in_progress)
+# ...do the work...
+bd close <id> --reason "..."  # close it
+```
+
+At **session close**, make work durable *without* merging:
+
+```bash
+git add <files> && git commit -S -m "..."   # signed, on the FEATURE branch
+git push -u origin <feature-branch>          # push the branch, never main
+bd dolt push                                 # sync the bead graph (refs/dolt/data)
+```
+
+Then open/update the PR and **stop at the merge gate** — a human approves the squash-merge.
+
+### Cross-machine sync
+
+Bead state syncs via **Dolt remotes** on the same git `origin`, under `refs/dolt/data` (separate from `refs/heads/*`). The Main Branch Ruleset targets `refs/heads/main` only, so `bd dolt push` is **not** blocked by branch protection.
+
+- Fresh clone: `bd bootstrap` (clones the Dolt history the first time), then `bd dolt pull` thereafter.
+- If `bd init` didn't auto-wire the remote: `bd dolt remote add origin git+https://github.com/<owner>/<repo>.git`, then `bd dolt push`. Commit the resulting `.beads/config.yaml` so fresh clones can bootstrap.
+
+### `.beads/` commit convention
+
+bd's generated `.beads/.gitignore` already gets this right — keep it:
+
+- **Track:** `.beads/issues.jsonl` (passive export, human-readable) and `.beads/config.yaml` (carries `sync.remote`).
+- **Ignore:** `.beads/embeddeddolt/` (the local Dolt DB — syncs via Dolt remotes, not git blobs), runtime locks, and `.beads-credential-key`.
+
+`issues.jsonl` is an **export for viewers/interchange, not the sync channel** — never `bd import` it in place of `bd dolt pull`.
+
+### Memory
+
+Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel with the repo. The **global** Claude memory system stays the home for cross-repo / user-level context — `bd remember` does not replace it.
+
+### Caveats
+
+- `bd init` appends a beads block to `CLAUDE.md` whose default wording mandates auto-push and bans `TaskCreate`/`MEMORY.md`. **Reconcile it** with these policies: push the feature branch + `bd dolt push`, keep the merge gated, and scope the memory rule to repo-level.
+- After reconciling, `bd setup claude --check` reports the block as "stale." **Do not run `bd setup claude`** to clear it — that reverts the reconciliation.
+- Install `bd` **checksum-verified**: the release binary checked against the release `checksums.txt`, or the official install script (which verifies for you).
+
+---
+
 ## Summary: The Golden Rules
 
 1. **Issue first, code second** — always create a GitHub issue before starting implementation
@@ -364,3 +422,4 @@ Rules:
 14. **Self-review every PR** — re-read the diff after opening; fix issues in a follow-up commit and document findings in a PR comment
 15. **Keep STATUS.md and CHANGELOG.md current** — update both as part of every PR that delivers work; STATUS.md shows where the project stands, CHANGELOG.md records what changed and links to the PR
 16. **Configure every new repo on creation** — enable auto-delete branches and protect `main` before the first commit lands
+17. **In beads repos, layer don't replace** — beads is the execution/memory layer; the GitHub Issue stays the shippable unit. Push the feature branch + `bd dolt push` at session close, but merges to `main` stay human-gated via PR (never auto-merge)
