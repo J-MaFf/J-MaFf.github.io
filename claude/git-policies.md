@@ -383,14 +383,56 @@ Bead state syncs via **Dolt remotes** on the same git `origin`, under `refs/dolt
 - Fresh clone: `bd bootstrap` (clones the Dolt history the first time), then `bd dolt pull` thereafter.
 - If `bd init` didn't auto-wire the remote: `bd dolt remote add origin git+https://github.com/<owner>/<repo>.git`, then `bd dolt push`. Commit the resulting `.beads/config.yaml` so fresh clones can bootstrap.
 
-### `.beads/` commit convention
+### `.beads/` commit convention — **dolt-only sync** (don't track the exports)
 
-bd's generated `.beads/.gitignore` already gets this right — keep it:
+Bead state syncs **only** through Dolt (`refs/dolt/data`), not through git-tracked files. The JSONL
+files are passive *exports* that bd rewrites to match the live DB on every mutation — tracking them
+just produces endless git churn (stale exports, deletions stranded on `main`, "bd looks like it's
+committing to `main`"). So **don't track them**:
 
-- **Track:** `.beads/issues.jsonl` (passive export, human-readable) and `.beads/config.yaml` (carries `sync.remote`).
-- **Ignore:** `.beads/embeddeddolt/` (the local Dolt DB — syncs via Dolt remotes, not git blobs), runtime locks, and `.beads-credential-key`.
+- **Track:** `.beads/config.yaml` (carries `sync.remote`) and `.beads/metadata.json` (project
+  identity) — these are stable and let a fresh clone `bd bootstrap`. Also `.beads/.gitignore` itself.
+- **Ignore:** `.beads/embeddeddolt/` (local Dolt DB), `.beads/issues.jsonl`,
+  `.beads/interactions.jsonl` (passive exports), `.beads/hooks/` (see below), runtime locks, and
+  `.beads-credential-key`.
 
-`issues.jsonl` is an **export for viewers/interchange, not the sync channel** — never `bd import` it in place of `bd dolt pull`.
+To convert a repo that currently tracks the exports:
+
+```bash
+git rm --cached .beads/issues.jsonl .beads/interactions.jsonl
+git rm -r --cached .beads/hooks                       # if present and inert
+# add issues.jsonl, interactions.jsonl, hooks/ to .beads/.gitignore
+```
+
+`issues.jsonl` is an **export for viewers/interchange, not the sync channel** — never `bd import` it
+in place of `bd dolt pull`.
+
+### Sync model (replaces "commit the export to a branch")
+
+Because the exports aren't tracked, there's **no `.beads/` churn to commit** and no "branch before
+every bd command" discipline to remember. Durability and cross-machine sync are pure Dolt:
+
+```bash
+bd dolt push     # at session close — sync the graph (refs/dolt/data), not blocked by branch protection
+bd dolt pull     # pick up other machines' changes
+bd bootstrap     # fresh clone: hydrate the local Dolt DB from the remote the first time
+```
+
+Still **never `git commit` `.beads/` changes onto `main` directly** — but with exports ignored the
+only tracked `.beads/` files are `config.yaml` / `metadata.json`, which rarely change. If you *do*
+see a diff on those that's **line-ending-only** (LF↔CRLF), it's noise — `git restore` it.
+
+### Git hooks — opt-in, not tracked
+
+bd can install git-hook shims (`pre-commit`, `post-merge`, `pre-push`, `post-checkout`,
+`prepare-commit-msg`) that auto-sync Dolt and add agent trailers. They're **off by default**: tracking
+them in `.beads/hooks/` without wiring them into `.git/hooks` just leaves inert files. Either:
+
+- **Default (recommended for solo repos):** don't track them; sync explicitly with `bd dolt push` / `pull`.
+- **Opt in per clone:** `bd hooks install` (writes into `.git/hooks`, local-only — doesn't travel via git).
+
+Note the `prepare-commit-msg` hook rewrites commit messages with identity trailers and `pre-commit`
+adds per-commit latency — fine for orchestrator fleets, usually unwanted noise for a solo repo.
 
 ### Memory
 
@@ -423,3 +465,4 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 15. **Keep STATUS.md and CHANGELOG.md current** — update both as part of every PR that delivers work; STATUS.md shows where the project stands, CHANGELOG.md records what changed and links to the PR
 16. **Configure every new repo on creation** — enable auto-delete branches and protect `main` before the first commit lands
 17. **In beads repos, layer don't replace** — beads is the execution/memory layer; the GitHub Issue stays the shippable unit. Push the feature branch + `bd dolt push` at session close, but merges to `main` stay human-gated via PR (never auto-merge)
+18. **Beads syncs via Dolt, not git** — don't track the JSONL exports (`issues.jsonl`/`interactions.jsonl`) or hook shims; gitignore them and sync with `bd dolt push` / `pull` (`bd bootstrap` on fresh clones). Only `config.yaml` + `metadata.json` stay tracked. Never commit `.beads/` to `main` directly
