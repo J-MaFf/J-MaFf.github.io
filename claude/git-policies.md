@@ -453,7 +453,7 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 3. **Write detailed commit messages** — each commit should include relevant context and details for the final squash message
 4. **Keep branches in sync with rebase** — use `git rebase main` to stay current; don't merge main into feature branches
 5. **Force push safely** — use `git push --force-with-lease` after rebase, but only on feature branches, never on main
-6. **Sign commits with SSH** — always use `git commit -S`; never skip silently
+6. **Sign commits with SSH** — always use `git commit -S`; every machine signs with a file-based on-disk key (no agent, no Touch ID prompt); never skip silently
 7. **Keep PRs reviewable** — scope PRs to a single feature or fix; break larger tasks into multiple PRs
 8. **PRs reference issues** — every PR body must say `Fixes #N`
 9. **Assignee and labels always** — every PR must have `--assignee J-MaFf` and an appropriate label
