@@ -113,6 +113,91 @@ git rebase main
 
 ---
 
+## Parallel Branches & Integration Waves
+
+When several branches are open at once (multiple devs, or a fleet of agents), pick the
+integration pattern **before** opening the PRs:
+
+**Independent changes → parallel PRs + sequential bottom-up merge.**
+Merge one PR at a time; after each merge, rebase the next branch onto fresh `main`
+(`git rebase main`, then `git push --force-with-lease`), let required checks re-run on the
+rebased head, merge, repeat. Once the human has approved merging the wave, use GitHub
+auto-merge so each merge fires the moment its checks pass instead of polling:
+
+```bash
+gh pr merge <n> --squash --auto --subject "..." --body "..."
+```
+
+(`--auto` requires the repo setting `allow_auto_merge=true` — see New Repository Setup.
+This does not conflict with the "never auto-merge" rule: the human approves the merge;
+`--auto` only lets CI gate the *timing*.) Never merge a rebased branch whose required
+checks haven't re-passed on the new head SHA.
+
+**Prefer a merge queue when available.** GitHub's merge queue does the above
+automatically: PRs are enqueued, speculatively rebased onto the latest candidate state,
+CI runs on the *result*, and green PRs land in order — nobody hand-rebases the same
+branch twice. Merge queues currently require organization-owned repos; on personal
+(user-owned) repos, the auto-merge + sequential-rebase loop above is the substitute.
+Even for a solo dev, agent fleets create real parallel-PR contention, so enable the
+queue wherever the repo qualifies.
+
+**Genuinely dependent changes → stack the PRs.**
+Base each branch on the previous branch, not `main`, and target the PR at that base
+(`gh pr create --base <prev-branch>`). Merge the stack **bottom-up** with squash; with
+`delete_branch_on_merge` enabled, GitHub retargets each still-open PR to `main` when its
+base branch is deleted, and `Fixes #N` closes the issue when the retargeted PR lands on
+the default branch. Only stack when the work is truly sequential — an unnecessary stack
+blocks PR N on PR 1's review. A stacked chain also avoids all cross-PR conflicts by
+construction, which makes it the right shape for agent fleets working on overlapping files.
+
+**Squash-merged stacks require a restack after every merge.** GitHub's retarget changes
+the PR's base ref but does NOT rebase the branch: after the parent squash-merges, the
+child's lineage still carries the parent's *original* commits while `main` carries an
+equivalent *squash* commit, and git conflicts wherever parent and child touched the same
+hunk regions (a superset hunk still conflicts — identical content does not "net out" in
+a merge). After each parent merges, **restack the child by rebasing only its own commits
+onto main** — `git rebase --onto main <old-parent-tip> <child-branch>` — then force-push
+with lease, let required checks re-pass on the new head, and merge. Never merge a
+stacked PR whose base just changed without confirming it is MERGEABLE against `main`;
+and never let merge automation fall through to `gh pr merge` when the base/mergeable
+check did not explicitly pass (a merge issued while the PR still targets its old base
+lands the squash on the *parent branch*, not `main`).
+
+**Merge style does not affect conflicts.** Conflicts come from content overlap, not from
+squash vs merge-commit vs rebase-merge. Keep the squash default; the pattern choice above
+is what controls integration pain.
+
+---
+
+## Minimizing Cross-Branch Conflicts
+
+Most cross-branch conflicts come from a few shared "magnet" files. Design them away
+rather than resolving the same conflict N times:
+
+- **CHANGELOG.md is a conflict magnet.** Every PR appends to the same `[Unreleased]`
+  block, so any two open PRs collide there. The standing resolution is **keep-both**
+  (union of all bullets from both sides), never keep-one. If a repo sees frequent
+  parallel waves, *consider* changelog fragments (each PR adds a uniquely-named file
+  under `changelog.d/`, assembled into CHANGELOG.md at release) — but that is an
+  opt-in per-repo decision, not the default; the Keep-a-Changelog single-file format
+  remains the standard until a repo explicitly adopts fragments.
+- **Committed generated files guarantee conflicts.** A generated artifact checked into
+  the repo collides on every pair of PRs that touch its source. Prefer building it in CI
+  and publishing it as a release asset. When it must stay committed (e.g. a raw-URL
+  one-liner depends on it), the conflict resolution is mechanical and must be treated
+  that way: **resolve the source files, regenerate the artifact with the build script,
+  stage the regenerated output** — never hand-merge generated content. Marking it
+  `linguist-generated=true` in `.gitattributes` collapses it in PR review but does not
+  prevent conflicts.
+- **Short-lived branches beat clever merging.** Integration pain scales with how long
+  branches diverge. Keep PRs small and land them within a day or two; hide unfinished
+  work behind flags rather than long-lived branches.
+
+If a repo has an unavoidable magnet file, document it (and the scripted resolution) in
+that repo's CLAUDE.md or STATUS.md so agents resolve it consistently.
+
+---
+
 ## Branch Cleanup
 
 After a PR merges, clean up local and remote branches using your git aliases:
@@ -239,13 +324,13 @@ Before marking a PR ready or asking for review, check for these common issues:
 
 After creating a repo with `gh repo create`, apply these two settings before doing anything else.
 
-### 1. Auto-delete head branches on merge
+### 1. Auto-delete head branches on merge + allow auto-merge
 
 ```bash
-gh api repos/OWNER/REPO --method PATCH --field delete_branch_on_merge=true
+gh api repos/OWNER/REPO --method PATCH --field delete_branch_on_merge=true --field allow_auto_merge=true
 ```
 
-GitHub does not enable this by default. Without it, merged branches pile up and `git cleanup` becomes necessary after every PR.
+GitHub enables neither by default. Without `delete_branch_on_merge`, merged branches pile up and `git cleanup` becomes necessary after every PR; it also powers stacked-PR retargeting (see Parallel Branches & Integration Waves). `allow_auto_merge` lets an approved merge fire as soon as required checks pass (`gh pr merge --auto`).
 
 ### 2. Protect `main` with a ruleset
 
@@ -466,3 +551,5 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 16. **Configure every new repo on creation** — enable auto-delete branches and protect `main` before the first commit lands
 17. **In beads repos, layer don't replace** — beads is the execution/memory layer; the GitHub Issue stays the shippable unit. Push the feature branch + `bd dolt push` at session close, but merges to `main` stay human-gated via PR (never auto-merge)
 18. **Beads syncs via Dolt, not git** — don't track the JSONL exports (`issues.jsonl`/`interactions.jsonl`) or hook shims; gitignore them and sync with `bd dolt push` / `pull` (`bd bootstrap` on fresh clones). Only `config.yaml` + `metadata.json` stay tracked. Never commit `.beads/` to `main` directly
+19. **Pick the integration pattern before opening parallel PRs** — independent changes: sequential bottom-up merge with rebase between (or a merge queue where the repo qualifies); dependent changes: a stacked chain merged bottom-up. Merge style never fixes conflicts — content overlap does
+20. **Design away conflict-magnet files** — CHANGELOG `[Unreleased]` conflicts resolve as keep-both; committed generated files are resolved by regenerating from resolved sources, never hand-merged; prefer CI-published artifacts over committed generated files where distribution allows
