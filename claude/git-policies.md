@@ -17,7 +17,8 @@ The workflow:
 
 1. **Spot a bug or issue** → Create a GitHub issue first
    - Use appropriate labels: `bug`, `enhancement`, `documentation`, or other GitHub defaults
-   - Example: `gh issue create --title "Fix auth timeout" --label bug`
+   - Always include `--assignee J-MaFf`
+   - Example: `gh issue create --title "Fix auth timeout" --label bug --assignee J-MaFf`
 
 2. **Create a branch** tied to that issue with a logically descriptive name (see **Branch Naming** below)
 
