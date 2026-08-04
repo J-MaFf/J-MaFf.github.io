@@ -19,6 +19,7 @@ The workflow:
    - Use appropriate labels: `bug`, `enhancement`, `documentation`, or other GitHub defaults
    - Always include `--assignee J-MaFf`
    - Example: `gh issue create --title "Fix auth timeout" --label bug --assignee J-MaFf`
+   - Before picking work, list what's already open: `git issues` (current repo) or `git issues --all` (across all your repos)
 
 2. **Create a branch** tied to that issue with a logically descriptive name (see **Branch Naming** below)
 
