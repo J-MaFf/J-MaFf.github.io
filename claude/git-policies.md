@@ -200,6 +200,35 @@ that repo's CLAUDE.md or STATUS.md so agents resolve it consistently.
 
 ---
 
+## Git Aliases
+
+Custom aliases are defined in `C:/Users/7maff/Documents/Scripts/gitconfig/.gitconfig.template`
+(the gitconfig repo is the source of truth). Run `git alias` to print the full, current list —
+prefer that over this table if they ever disagree. Workflow-relevant aliases:
+
+| Alias | Expands to / does |
+|---|---|
+| `git s` | `status -sb` |
+| `git lg` | `log --graph --oneline --decorate --all` |
+| `git last` | Last commit with stats |
+| `git recent` | 15 most recently committed local branches |
+| `git nb <name>` | `switch -c <name>` (new branch) |
+| `git sync` | `pull --rebase --autostash` |
+| `git pushf` | `push --force-with-lease` (never plain `--force`) |
+| `git amend` / `git reword` | Amend last commit without / with editing message |
+| `git undo` | `reset --soft HEAD~1` |
+| `git unstage` | `reset HEAD --` |
+| `git start` | Helper: begin work (issue/branch setup) |
+| `git main` | Helper: switch to main and update it |
+| `git cleanup` | Helper: delete branches whose remotes are gone (`--force` also deletes local-only) |
+| `git branches` | Fetch and create local tracking branches for all remote branches |
+| `git pr` / `git prs` | `gh pr view --web` / `gh pr status` |
+
+Use these when they fit the step (e.g. `git sync` before branching, `git pushf` after a rebase,
+`git cleanup` after a merge) — they encode the conventions in this document.
+
+---
+
 ## Branch Cleanup
 
 After a PR merges, clean up local and remote branches using your git aliases:
