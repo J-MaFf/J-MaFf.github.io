@@ -165,6 +165,16 @@ and never let merge automation fall through to `gh pr merge` when the base/merge
 check did not explicitly pass (a merge issued while the PR still targets its old base
 lands the squash on the *parent branch*, not `main`).
 
+**Auto-close gotcha: retarget the child BEFORE the parent's branch is deleted.** GitHub's
+retarget-on-branch-delete is not guaranteed — deleting the parent branch can instead
+**close** the child PR outright, and a closed PR cannot be reopened once its head has
+been force-pushed (which the restack above requires). Prevention: run
+`gh pr edit <child> --base main` *before* merging (or at least before deleting) the
+parent branch. Recovery if it bites: restack the branch onto `main`, fix any PR-number
+self-references in docs (the replacement PR gets a new number), and open a fresh
+replacement PR — reference the original issue with `Fixes #N` and note in the body which
+PR it replaces.
+
 **Merge style does not affect conflicts.** Conflicts come from content overlap, not from
 squash vs merge-commit vs rebase-merge. Keep the squash default; the pattern choice above
 is what controls integration pain.
