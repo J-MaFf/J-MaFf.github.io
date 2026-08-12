@@ -483,6 +483,16 @@ Rules:
 
 Beads guards **durability/sync**; these policies guard **review/control**. They only appear to conflict if you read bd's "push" as "merge." Keep them separate: bd makes work durable; **merges to `main` stay human-gated via PR** (never auto-merge).
 
+**`bd dolt push` runs automatically — no confirmation, not batched for session close.** It is not
+merge-adjacent and is not blocked by branch protection (see Cross-machine sync below), so treat
+it like any other durable, low-risk local action: push immediately after `bd create`/`bd
+update`/`bd close`, the moment bead state changes. This matters most for multi-machine
+workflows — the invariant a user typically relies on is that whichever machine they last worked
+from has already pushed, so the next machine's `bd dolt pull` is current the moment they sit
+down. This is scoped narrowly to `bd dolt push`: a feature-branch `git push` already goes out
+freely per this skill's own delegation, and **merging to `main` stays human-gated via PR** —
+never auto-merge, regardless of how freely bead state syncs.
+
 ### Core loop
 
 ```bash
@@ -490,17 +500,18 @@ bd ready                      # tasks with no open blockers
 bd update <id> --claim        # claim one (sets assignee + in_progress)
 # ...do the work...
 bd close <id> --reason "..."  # close it
+bd dolt push                  # sync immediately -- don't wait for session close
 ```
 
-At **session close**, make work durable *without* merging:
+At **session close**, make the code durable *without* merging:
 
 ```bash
 git add <files> && git commit -S -m "..."   # signed, on the FEATURE branch
 git push -u origin <feature-branch>          # push the branch, never main
-bd dolt push                                 # sync the bead graph (refs/dolt/data)
 ```
 
-Then open/update the PR and **stop at the merge gate** — a human approves the squash-merge.
+Bead state should already be synced by this point. Then open/update the PR and **stop at the
+merge gate** — a human approves the squash-merge.
 
 ### Cross-machine sync
 
@@ -590,7 +601,7 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 14. **Self-review every PR** — re-read the diff after opening; fix issues in a follow-up commit and document findings in a PR comment
 15. **Keep STATUS.md and CHANGELOG.md current** — update both as part of every PR that delivers work; STATUS.md shows where the project stands, CHANGELOG.md records what changed and links to the PR
 16. **Configure every new repo on creation** — enable auto-delete branches and protect `main` before the first commit lands
-17. **In beads repos, layer don't replace** — beads is the execution/memory layer; the GitHub Issue stays the shippable unit. Push the feature branch + `bd dolt push` at session close, but merges to `main` stay human-gated via PR (never auto-merge)
+17. **In beads repos, layer don't replace** — beads is the execution/memory layer; the GitHub Issue stays the shippable unit. `bd dolt push` runs automatically after every bead mutation, no confirmation; push the feature branch at session close; merges to `main` stay human-gated via PR (never auto-merge)
 18. **Beads syncs via Dolt, not git** — don't track the JSONL exports (`issues.jsonl`/`interactions.jsonl`) or hook shims; gitignore them and sync with `bd dolt push` / `pull` (`bd bootstrap` on fresh clones). Only `config.yaml` + `metadata.json` stay tracked. Never commit `.beads/` to `main` directly
 19. **Pick the integration pattern before opening parallel PRs** — independent changes: sequential bottom-up merge with rebase between (or a merge queue where the repo qualifies); dependent changes: a stacked chain merged bottom-up. Merge style never fixes conflicts — content overlap does
 20. **Design away conflict-magnet files** — CHANGELOG `[Unreleased]` conflicts resolve as keep-both; committed generated files are resolved by regenerating from resolved sources, never hand-merged; prefer CI-published artifacts over committed generated files where distribution allows
