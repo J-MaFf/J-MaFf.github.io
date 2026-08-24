@@ -75,3 +75,10 @@ bd.db
 # They would override fork protection in .git/info/exclude.
 # Config files (metadata.json, config.yaml) are tracked by git by default
 # since no pattern above ignores them.
+
+# Dolt-only sync convention (git-policies skill, Golden Rule #18):
+# bead state syncs exclusively via `bd dolt push`/`pull` (refs/dolt/data), not git.
+# These are passive exports / inert shims that would otherwise churn on every commit.
+issues.jsonl
+interactions.jsonl
+hooks/
