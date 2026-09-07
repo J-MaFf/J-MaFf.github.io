@@ -26,6 +26,7 @@ The workflow:
 3. **Implement on that branch**
    - Write meaningful commit messages with all relevant details (see **Commit Messages** below)
    - Each commit should be self-documenting, even though it will be squashed later — the details inform the final squash message
+   - **Update `CHANGELOG.md` (and `STATUS.md`/`docs/*.md` if they describe the changed behavior) in the same commit as the fix or feature** — see **Project Documentation Files** below. Don't defer this to a follow-up commit or a later PR; a fix that lands without its changelog entry is incomplete, not merely undocumented.
 
 4. **Open a PR** referencing the issue
    - Use `Fixes #N` in the PR body (where N is the issue number)
@@ -358,6 +359,7 @@ Before marking a PR ready or asking for review, check for these common issues:
 ### All languages
 - **Post a self-review comment on every PR** — after opening a PR, re-read the diff as a reviewer would. If you find issues, fix them in a follow-up commit and document what you found and fixed in a PR comment. This creates a paper trail and catches problems before the user reviews.
 - **Link follow-up issues back to the PR** — if the self-review surfaces something out of scope that you file as a separate GitHub issue (e.g. a pre-existing failure or unrelated bug), post a PR comment linking that issue. This keeps the paper trail connected so reviewers can see what was deferred and why.
+- **Check for a missing CHANGELOG/docs update before marking the PR ready** — `git diff origin/main..HEAD --stat | grep -i changelog` (and `-- docs/` for docs). Does this change touch user-visible or operational behavior that `CHANGELOG.md` should record, or does it make an existing `docs/*.md` passage stale? If the diff is silent on both and it shouldn't be, add the entry now rather than waiting for the user to ask.
 
 ---
 
