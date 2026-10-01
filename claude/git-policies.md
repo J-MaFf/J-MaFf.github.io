@@ -515,6 +515,26 @@ git push -u origin <feature-branch>          # push the branch, never main
 Bead state should already be synced by this point. Then open/update the PR and **stop at the
 merge gate** — a human approves the squash-merge.
 
+### Linking beads to issues (1:1)
+
+Every open top-level bead has exactly one GitHub issue, linked with `--external-ref gh-N`, and
+every open issue has a bead linked that way. Without this rule the two trackers drift apart. In
+`J-MaFf/homelab`, only 24 of 326 issues ended up with a linked bead (homelab#644).
+
+- **`external_ref` means the same work item.** A *related* issue goes in the description, never
+  in `external_ref`. Child beads (`--parent`) may skip their own issue and use their parent's.
+- **Opening an issue** (step 1 of the Development Workflow)? File its bead right away:
+  `bd create --title="<same title>" --external-ref gh-N -d "GitHub issue #N: <url>"`, then `bd dolt push`.
+- **Filing a bead for shippable work** (a follow-up, an incident, a spec)? Open its issue right
+  away, then `bd update <id> --external-ref gh-N`.
+- **Closing:** `Fixes #N` closes only the issue, on merge. Close the bead when the issue closes,
+  not when the PR opens. A repo can automate this. `J-MaFf/homelab` runs
+  `scripts/check-bead-issue-sync.sh --fix --hook` from its SessionStart hook, which closes beads
+  whose issue is closed and reports every other kind of drift.
+- **Don't use `bd github sync` to fix drift.** It doesn't recognise `gh-N` refs. A dry run in
+  homelab would have pushed every bead to GitHub as a new issue, duplicating about 150 that
+  already existed.
+
 ### Cross-machine sync
 
 Bead state syncs via **Dolt remotes** on the same git `origin`, under `refs/dolt/data` (separate from `refs/heads/*`). The Main Branch Ruleset targets `refs/heads/main` only, so `bd dolt push` is **not** blocked by branch protection.
