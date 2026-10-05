@@ -535,6 +535,60 @@ every open issue has a bead linked that way. Without this rule the two trackers 
   homelab would have pushed every bead to GitHub as a new issue, duplicating about 150 that
   already existed.
 
+### Marking work for the overnight sandbox
+
+Some repos are enrolled in an unattended overnight worker (homelab's `claude-sandbox/`, CT 210).
+Each night it works the queued items one at a time and opens one PR per item. Joey reviews those
+PRs in the morning. An item is queued by the label `overnight`. **When you file a bead or issue in
+an enrolled repo, decide whether it qualifies and label it then, without asking.** Your reply must
+say which items you labelled and which you left out, with a short reason for each one left out.
+
+**Enrolled repos** are listed in `claude-sandbox/repos.conf` in `J-MaFf/homelab`:
+
+```bash
+gh api repos/J-MaFf/homelab/contents/claude-sandbox/repos.conf -q .content | base64 -d
+```
+
+If that file doesn't exist, only `J-MaFf/homelab` is enrolled. In any other repo, skip the check.
+
+**Where the label goes:**
+
+- **Repo with `.beads/`:** on the bead, with `bd label add <id> overnight`, then `bd dolt push`.
+  The worker reads `bd ready --label overnight`, so a label on the GitHub issue does nothing
+  there.
+- **Repo without beads:** on the GitHub issue, with `gh issue edit <N> --add-label overnight`.
+
+**Label it only if every one of these holds:**
+
+- **Decided.** The item says what done looks like, or points at a blueprint spec. No question is
+  left for Joey to answer. The worker can't ask anyone: it guesses and logs the guess.
+- **Repo-only.** It can be done from a clone, in code, config, docs and tests. The worker has no
+  SSH, no deploy access, no secrets or password-manager access, and no hypervisor access. On the
+  LAN it can only make read-only metrics queries. Live checks or a deploy step *after* merge are
+  fine, since they go in the PR's `## Needs human verification` list. The change itself must not
+  depend on live state the worker can't read.
+- **No workflow files.** It changes nothing under `.github/workflows/`, because the worker's App
+  lacks that permission.
+- **One PR, about an hour.** It fits in a single PR and one 90-minute attempt. Split bigger work
+  into child beads and label the children that qualify.
+- **Ready.** It has no open blockers (it shows in `bd ready`), and it isn't claimed or in
+  progress.
+
+**Never label:**
+
+- Work you are about to do yourself in this session.
+- An item carrying `from-overnight`. Those are the worker's own follow-ups.
+- An item labelled `overnight-pr` or `overnight-failed`. It has already been tried, and swapping
+  it back to `overnight` is a retry that only Joey decides.
+- Spec-writing, interviews, research, incidents in progress, or credential rotation.
+- Changes to the sandbox's own controls: `claude-sandbox/`, branch rulesets, or the merge-gate
+  workflow.
+- Anything at all when you *are* the overnight worker (`OVERNIGHT_MODE` is set). Never add
+  `overnight` from inside a run.
+
+When in doubt, leave the item unlabelled and say why. A missing label costs one night. A wrong one
+costs a wasted attempt and a PR to close.
+
 ### Cross-machine sync
 
 Bead state syncs via **Dolt remotes** on the same git `origin`, under `refs/dolt/data` (separate from `refs/heads/*`). The Main Branch Ruleset targets `refs/heads/main` only, so `bd dolt push` is **not** blocked by branch protection.
@@ -627,3 +681,4 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 18. **Beads syncs via Dolt, not git** — don't track the JSONL exports (`issues.jsonl`/`interactions.jsonl`) or hook shims; gitignore them and sync with `bd dolt push` / `pull` (`bd bootstrap` on fresh clones). Only `config.yaml` + `metadata.json` stay tracked. Never commit `.beads/` to `main` directly
 19. **Pick the integration pattern before opening parallel PRs** — independent changes: sequential bottom-up merge with rebase between (or a merge queue where the repo qualifies); dependent changes: a stacked chain merged bottom-up. Merge style never fixes conflicts — content overlap does
 20. **Design away conflict-magnet files** — CHANGELOG `[Unreleased]` conflicts resolve as keep-both; committed generated files are resolved by regenerating from resolved sources, never hand-merged; prefer CI-published artifacts over committed generated files where distribution allows
+21. **Queue eligible work for the overnight sandbox** — when filing a bead or issue in an enrolled repo (`claude-sandbox/repos.conf` in homelab), label it `overnight` if it is decided, repo-only, workflow-free, one PR in about 90 minutes, and unblocked; report what you labelled. Never label your own in-session work, `from-overnight` items, or anything from inside an overnight run
