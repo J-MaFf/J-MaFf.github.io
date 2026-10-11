@@ -55,6 +55,8 @@ Use kebab-case with a type prefix:
 - **Documentation:** `docs/<short-description>`
   - Example: `docs/api-endpoint-guide`
 
+`git start <N>` names the branch from the issue as `<type>/<N>-<title-slug>` (e.g. `fix/42-auth-timeout-issue`). That form follows this convention too; the issue number is what lets `git start` find and resume the branch later.
+
 ---
 
 ## Commit Messages During Development
@@ -110,8 +112,9 @@ git rebase main
 - If something goes wrong, abort: `git rebase --abort`
 
 **Force push after rebase:**
-- After rebasing a feature branch, you'll need to force-push: `git push --force-with-lease origin <branch>`
+- After rebasing a feature branch, you'll need to force-push: `git pushf` (or `git push --force-with-lease --force-if-includes origin <branch>`)
 - Use `--force-with-lease` (safer than `--force`) — it prevents overwriting others' work if branch was pushed
+- Add `--force-if-includes` (git 2.30+) — a bare `--force-with-lease` is disarmed by any background fetch (IDE auto-fetch, `git main`), because the fetch moves the remote-tracking ref it compares against; `--force-if-includes` also rejects the push unless the remote tip is in your branch's history
 - **Only force-push to feature branches, never to `main` or protected branches**
 
 ---
@@ -123,7 +126,7 @@ integration pattern **before** opening the PRs:
 
 **Independent changes → parallel PRs + sequential bottom-up merge.**
 Merge one PR at a time; after each merge, rebase the next branch onto fresh `main`
-(`git rebase main`, then `git push --force-with-lease`), let required checks re-run on the
+(`git rebase main`, then `git pushf`), let required checks re-run on the
 rebased head, merge, repeat. Once the human has approved merging the wave, use GitHub
 auto-merge so each merge fires the moment its checks pass instead of polling:
 
@@ -225,12 +228,12 @@ prefer that over this table if they ever disagree. Workflow-relevant aliases:
 | `git recent` | 15 most recently committed local branches |
 | `git nb <name>` | `switch -c <name>` (new branch) |
 | `git sync` | `pull --rebase --autostash` |
-| `git pushf` | `push --force-with-lease` (never plain `--force`) |
+| `git pushf` | `push --force-with-lease --force-if-includes` (never plain `--force`; git 2.30+) |
 | `git amend` / `git reword` | Amend last commit without / with editing message |
 | `git undo` | `reset --soft HEAD~1` |
 | `git unstage` | `reset HEAD --` |
-| `git start` | Helper: begin work (issue/branch setup) |
-| `git main` | Helper: switch to main and update it |
+| `git start <N>` | Helper: start or resume the branch for issue N, named `<type>/<N>-<title-slug>` (`fix/`, `docs/` or `feat/` from the issue's labels). Switches to an existing local branch for the issue, or tracks one that exists only on the remote; new branches come from the fetched default branch, never from the current branch |
+| `git main` | Helper: switch to the default branch, fetch, fast-forward only, then branch cleanup. Works from any worktree (if main is checked out elsewhere, it is updated there and you stay put); `git main --all` does every repo in the immediate subdirectories |
 | `git cleanup` | Helper: delete branches whose remotes are gone (`--force` also deletes local-only) |
 | `git branches` | Fetch and create local tracking branches for all remote branches |
 | `git pr` / `git prs` | `gh pr view --web` / `gh pr status` |
@@ -665,7 +668,7 @@ Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel w
 2. **Branch naming matters** — use `fix/`, `feat/`, or `docs/` prefixes
 3. **Write detailed commit messages** — each commit should include relevant context and details for the final squash message
 4. **Keep branches in sync with rebase** — use `git rebase main` to stay current; don't merge main into feature branches
-5. **Force push safely** — use `git push --force-with-lease` after rebase, but only on feature branches, never on main
+5. **Force push safely** — use `git pushf` (`--force-with-lease --force-if-includes`) after rebase, but only on feature branches, never on main
 6. **Sign commits with SSH** — always use `git commit -S`; every machine signs with a file-based on-disk key (no agent, no Touch ID prompt); never skip silently
 7. **Keep PRs reviewable** — scope PRs to a single feature or fix; break larger tasks into multiple PRs
 8. **PRs reference issues** — every PR body must say `Fixes #N`
