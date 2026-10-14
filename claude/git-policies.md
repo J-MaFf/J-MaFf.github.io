@@ -7,6 +7,18 @@
 
 Personal global standards for git workflow, branch management, PR conventions, and GitHub issue tracking.
 
+## Requirements
+
+- **CLIs:** `git` 2.30+ and `gh` authenticated as J-MaFf. `bd` only in repos with a `.beads/`
+  directory. The `git` aliases below come from the J-MaFf/gitconfig repo and are optional; without
+  them, run what each alias expands to.
+- **Connectors / MCPs:** none. A GitHub connector can stand in for `gh` on issues and PRs.
+- **Secrets:** an SSH commit-signing key registered on GitHub, configured on the machine. If the
+  machine has none, stop and ask; never commit unsigned.
+- **Machine / OS:** any.
+- **Agent capabilities:** shell access to the repo, push rights to feature branches, and the
+  user's approval before any merge to `main`.
+
 ---
 
 ## Development Workflow
@@ -210,14 +222,15 @@ rather than resolving the same conflict N times:
   work behind flags rather than long-lived branches.
 
 If a repo has an unavoidable magnet file, document it (and the scripted resolution) in
-that repo's CLAUDE.md or STATUS.md so agents resolve it consistently.
+that repo's agent-instructions file (CLAUDE.md, AGENTS.md) or STATUS.md so agents resolve it
+consistently.
 
 ---
 
 ## Git Aliases
 
-Custom aliases are defined in `C:/Users/7maff/Documents/Scripts/gitconfig/.gitconfig.template`
-(the gitconfig repo is the source of truth). Run `git alias` to print the full, current list —
+Custom aliases are defined in `.gitconfig.template` in the J-MaFf/gitconfig repo (the source of
+truth). Run `git alias` to print the full, current list —
 prefer that over this table if they ever disagree. Workflow-relevant aliases:
 
 | Alias | Expands to / does |
@@ -532,7 +545,7 @@ every open issue has a bead linked that way. Without this rule the two trackers 
   away, then `bd update <id> --external-ref gh-N`.
 - **Closing:** `Fixes #N` closes only the issue, on merge. Close the bead when the issue closes,
   not when the PR opens. A repo can automate this. `J-MaFf/homelab` runs
-  `scripts/check-bead-issue-sync.sh --fix --hook` from its SessionStart hook, which closes beads
+  `scripts/check-bead-issue-sync.sh --fix --hook` from its session-start automation, which closes beads
   whose issue is closed and reports every other kind of drift.
 - **Don't use `bd github sync` to fix drift.** It doesn't recognise `gh-N` refs. A dry run in
   homelab would have pushed every bead to GitHub as a new issue, duplicating about 150 that
@@ -652,12 +665,12 @@ adds per-commit latency — fine for orchestrator fleets, usually unwanted noise
 
 ### Memory
 
-Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel with the repo. The **global** Claude memory system stays the home for cross-repo / user-level context — `bd remember` does not replace it.
+Use `bd remember "<insight>"` for **repo-scoped** knowledge that should travel with the repo. The agent's **user-level** memory stays the home for cross-repo context — `bd remember` does not replace it.
 
 ### Caveats
 
-- `bd init` appends a beads block to `CLAUDE.md` whose default wording mandates auto-push and bans `TaskCreate`/`MEMORY.md`. **Reconcile it** with these policies: push the feature branch + `bd dolt push`, keep the merge gated, and scope the memory rule to repo-level.
-- After reconciling, `bd setup claude --check` reports the block as "stale." **Do not run `bd setup claude`** to clear it — that reverts the reconciliation.
+- `bd init` appends a beads block to the repo's agent-instructions file (`CLAUDE.md`, `AGENTS.md`) whose default wording mandates auto-push and bans the agent's own task list and memory file. **Reconcile it** with these policies: push the feature branch + `bd dolt push`, keep the merge gated, and scope the memory rule to repo-level.
+- After reconciling, `bd setup <agent> --check` (e.g. `bd setup claude --check`) reports the block as "stale." **Do not run `bd setup <agent>`** to clear it — that reverts the reconciliation.
 - Install `bd` **checksum-verified**: the release binary checked against the release `checksums.txt`, or the official install script (which verifies for you).
 
 ---
