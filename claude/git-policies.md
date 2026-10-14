@@ -1,6 +1,6 @@
 <!-- GENERATED FILE — do not edit by hand.
-     Source of truth: J-MaFf/claude-skills · git-policies/SKILL.md
-     Published by: claude-skills/.github/workflows/publish-git-policies.yml
+     Source of truth: J-MaFf/agent-skills · git-policies/SKILL.md
+     Published by: agent-skills/.github/workflows/publish-git-policies.yml
      Edit the skill, not this file. -->
 
 # Git Policies & GitHub Conventions
