@@ -494,6 +494,8 @@ Rules:
 
 **Applies only when a repo contains a `.beads/` directory.** Beads ([gastownhall/beads](https://github.com/gastownhall/beads)) is a Dolt-backed dependency-graph task tracker that sits **underneath** GitHub Issues as the agent's execution + memory layer. It does not replace this workflow — it layers under it.
 
+**Load the `beads` skill before any `bd` operation**, the same way the git workflow loads this skill first. That covers finding, claiming, creating, updating and closing beads, and setting a bead's status when you open a PR. The `beads` skill holds the `bd` conventions this section doesn't repeat, among them the custom statuses `in_review` (PR open, waiting on the merge) and `waiting` (blocked outside the bead graph). This section covers only how beads layers under the git workflow. If the skill can't be loaded, fall back to the core loop below.
+
 ### The layered model
 
 - **GitHub Issue = the shippable unit.** Branch → PR → `Fixes #N` → squash-merge, exactly as above.
